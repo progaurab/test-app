@@ -1,36 +1,211 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# React + Vite
 
-## Getting Started
+Implementation of an online gift store that connects with your json-server for product data.
 
-First, run the development server:
 
-```bash
+Features Implemented
+Product Listing from json-server data
+
+Search and Filter
+
+Product Detail page
+
+Cart Management using localStorage
+
+Checkout functionality with cart reset
+
+Routing via react-router-dom
+
+json-server --watch db.json --port 3000
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+// File: src/main.tsx
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './index.css';
 
-## Learn More
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
 
-To learn more about Next.js, take a look at the following resources:
+// File: src/App.tsx
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Navbar from './components/Navbar';
+import ProductList from './components/ProductList';
+import ProductDetail from './components/ProductDetail';
+import Cart from './components/Cart';
+import Checkout from './components/Checkout';
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+function App() {
+  return (
+    <Router>
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<ProductList />} />
+        <Route path="/product/:id" element={<ProductDetail />} />
+        <Route path="/cart" element={<Cart />} />
+        <Route path="/checkout" element={<Checkout />} />
+      </Routes>
+    </Router>
+  );
+}
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+export default App;
 
-## Deploy on Vercel
+// File: src/components/Navbar.tsx
+import { Link } from 'react-router-dom';
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+export default function Navbar() {
+  return (
+    <nav className="navbar">
+      <Link to="/">Home</Link>
+      <Link to="/cart">Cart</Link>
+    </nav>
+  );
+}
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+// File: src/components/ProductList.tsx
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+
+export default function ProductList() {
+  const [products, setProducts] = useState([]);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    fetch('http://localhost:3000/products')
+      .then(res => res.json())
+      .then(setProducts);
+  }, []);
+
+  const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div>
+      <input
+        type="text"
+        placeholder="Search..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+      <div className="product-list">
+        {filtered.map(p => (
+          <div key={p.id} className="product">
+            <img src={p.imageUrl} alt={p.name} />
+            <h3>{p.name}</h3>
+            <p>{p.price}</p>
+            <Link to={`/product/${p.id}`}>Details</Link>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// File: src/components/ProductDetail.tsx
+import { useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+
+export default function ProductDetail() {
+  const { id } = useParams();
+  const [product, setProduct] = useState(null);
+
+  useEffect(() => {
+    fetch(`http://localhost:3000/products/${id}`)
+      .then(res => res.json())
+      .then(setProduct);
+  }, [id]);
+
+  const addToCart = () => {
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    cart.push(product);
+    localStorage.setItem('cart', JSON.stringify(cart));
+    alert('Added to cart');
+  };
+
+  if (!product) return <div>Loading...</div>;
+
+  return (
+    <div className="product-detail">
+      <img src={product.imageUrl} alt={product.name} />
+      <h2>{product.name}</h2>
+      <p>{product.description}</p>
+      <p>${product.price}</p>
+      <button onClick={addToCart}>Add to Cart</button>
+    </div>
+  );
+}
+
+// File: src/components/Cart.tsx
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+
+export default function Cart() {
+  const [cart, setCart] = useState([]);
+
+  useEffect(() => {
+    setCart(JSON.parse(localStorage.getItem('cart') || '[]'));
+  }, []);
+
+  const removeItem = (index) => {
+    const newCart = [...cart];
+    newCart.splice(index, 1);
+    setCart(newCart);
+    localStorage.setItem('cart', JSON.stringify(newCart));
+  };
+
+  const clearCart = () => {
+    localStorage.removeItem('cart');
+    setCart([]);
+  };
+
+  return (
+    <div>
+      <h2>Your Cart</h2>
+      {cart.length === 0 ? <p>Cart is empty</p> : (
+        <>
+          <ul>
+            {cart.map((item, idx) => (
+              <li key={idx}>
+                {item.name} - ${item.price}
+                <button onClick={() => removeItem(idx)}>Remove</button>
+              </li>
+            ))}
+          </ul>
+          <button onClick={clearCart}>Clear Cart</button>
+          <Link to="/checkout"><button>Checkout</button></Link>
+        </>
+      )}
+    </div>
+  );
+}
+
+// File: src/components/Checkout.tsx
+export default function Checkout() {
+  const handleCheckout = () => {
+    alert('Thank you for your purchase!');
+    localStorage.removeItem('cart');
+  };
+
+  return (
+    <div>
+      <h2>Checkout</h2>
+      <p>Complete your order below:</p>
+      <button onClick={handleCheckout}>Confirm Order</button>
+    </div>
+  );
+}
+
+// File: vite.config.ts
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()],
+});
